@@ -1,71 +1,487 @@
 # AI Documentation Compliance Agent
 
-Foundation for an AI agent that checks the live WaiverPro provider portal against the official WaiverPro user guidelines PDF.
+AI-powered compliance checker for comparing the live WaiverPro provider portal against the official WaiverPro user guidelines PDF.
 
-## Stack
+The project crawls the authenticated website, extracts canonical UI components, parses guideline rules from the PDF, stores guideline and website evidence in ChromaDB, runs Gemini-based compliance comparison, generates reports, and provides a React dashboard for review.
+
+## Tech Stack
 
 - Node.js with JavaScript ES Modules
-- Express.js API
-- Playwright for rendered UI extraction and screenshots
-- Google Gemini API with `gemini-2.5-flash`
+- Express.js backend API
+- React.js frontend with Vite and Tailwind CSS
+- Playwright for login, crawling, screenshots, and DOM extraction
+- Google Gemini 2.5 Flash
+- Gemini embedding model via `GEMINI_EMBEDDING_MODEL`
 - LangChain JS
-- ChromaDB with Gemini `text-embedding-004`
-- `pdf-parse` for guideline ingestion
+- ChromaDB
+- `pdf-parse`
 
-## Setup
+## Project Structure
+
+```text
+src/
+  compliance/
+  config/
+  crawler/
+  embeddings/
+  middleware/
+  parser/
+  qa/
+  reports/
+  summarizer/
+  utils/
+
+client/
+  src/
+  package.json
+  vite.config.js
+
+data/
+  guidelines/
+  reports/
+  session/
+  summaries/
+  ui/
+
+screenshots/
+```
+
+## 1. Install Dependencies
+
+Go to the project folder:
 
 ```bash
-npm install
+cd "/home/amar/Desktop/AI Compliance Checker Aagent"
+```
+
+Install backend dependencies:
+
+```bash
+npm install --legacy-peer-deps
+```
+
+Install Playwright Chromium:
+
+```bash
 npx playwright install chromium
+```
+
+Install frontend dependencies:
+
+```bash
+npm install --prefix client
+```
+
+Verify Node:
+
+```bash
+node --version
+npm --version
+```
+
+Node should be version `20+`.
+
+## 2. Configure Environment
+
+Create `.env`:
+
+```bash
 cp .env.example .env
 ```
 
-Fill `GEMINI_API_KEY` in `.env`.
+Required values:
 
-Start ChromaDB separately, for example:
-
-```bash
-chroma run --host localhost --port 8000
+```env
+TARGET_URL=https://white-cliff-0bca3ed00.1.azurestaticapps.net/
+LOGIN_EMAIL=admin@gmail.com
+LOGIN_PASSWORD=password
+GEMINI_API_KEY=your_real_gemini_key
+GEMINI_EMBEDDING_MODEL=models/gemini-embedding-001
+PORT=3000
+NODE_ENV=development
+LOG_LEVEL=info
+CHROMA_URL=http://localhost:8000
+GUIDELINES_COLLECTION=guidelines_collection
+WEBSITE_COLLECTION=website_collection
+GUIDELINES_PDF_PATH=/home/amar/Desktop/WaiverPro-User-Guidelines.pdf
+HEADLESS=true
+CRAWL_MAX_PAGES=25
+RULE_EXTRACTION_DELAY_MS=15000
 ```
 
-## Commands
+For visual Playwright debugging:
 
-```bash
-npm run auth
-npm run ingest
-npm run index:guidelines
-npm run summarize
-npm run crawl:pages
-npm run extract:components
-npm run summarize:website
-npm run index:website
-npm run crawl
-npm run compare
-npm run report
-npm run ask:examples
+```env
+HEADLESS=false
 ```
 
-Or run the end-to-end pipeline:
+Test Gemini key:
 
 ```bash
-npm run pipeline
+node --input-type=module -e "import 'dotenv/config'; import { GoogleGenerativeAI } from '@google/generative-ai'; const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY); const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' }); const res = await model.generateContent('Reply with exactly OK'); console.log(res.response.text().trim());"
 ```
 
-Ask compliance questions after ingestion/indexing:
+Expected:
+
+```text
+OK
+```
+
+If you get `429 Too Many Requests`, the key is valid but quota is exhausted.
+
+## 3. Start ChromaDB
+
+Do not use system `/usr/bin/chroma` if it behaves like a Go syntax highlighter. Use the local ChromaDB virtual environment:
 
 ```bash
-npm run ask -- "Does the live landing page match the official guidelines?"
+.venv-chroma/bin/chroma run --host localhost --port 8000
 ```
 
-Start the API:
+Keep that terminal open.
+
+Verify in another terminal:
+
+```bash
+curl -s http://localhost:8000/api/v2/heartbeat
+```
+
+Expected shape:
+
+```json
+{"nanosecond heartbeat":123456789}
+```
+
+If `.venv-chroma` does not exist:
+
+```bash
+python3 -m venv .venv-chroma
+.venv-chroma/bin/pip install chromadb
+.venv-chroma/bin/chroma run --host localhost --port 8000
+```
+
+## 4. Start Backend API
 
 ```bash
 npm run start
 ```
 
-API endpoints:
+Verify:
+
+```bash
+curl -s http://localhost:3000/health
+```
+
+Expected:
+
+```json
+{"status":"ok","service":"ai-documentation-compliance-agent","timestamp":"..."}
+```
+
+Note: `http://localhost:3000/` returning route-not-found is normal. Use `/health` or `/api/*`.
+
+If port `3000` is already in use:
+
+```bash
+npm run start:3001
+```
+
+## 5. Start Frontend
+
+In another terminal:
+
+```bash
+npm run client:dev
+```
+
+Open:
+
+```text
+http://localhost:5173
+```
+
+If backend is running on `3001`:
+
+```bash
+npm run client:dev:3001
+```
+
+Build frontend:
+
+```bash
+npm run client:build
+```
+
+The UI displays:
+
+- compliance score
+- crawled pages
+- extracted components
+- guideline rules
+- discrepancies
+- reports
+- screenshot evidence
+- Q&A panel
+- full validation pipeline button
+
+## 6. Syntax Check
+
+```bash
+for file in src/**/*.js src/*.js; do node --check "$file" || exit 1; done
+```
+
+Expected: no output.
+
+## 7. Full Execution Order
+
+Run commands from the project folder in this order:
+
+```bash
+npm run auth
+npm run crawl:pages
+npm run extract:components
+npm run ingest
+npm run index:guidelines
+npm run summarize:website
+npm run index:website
+npm run compare
+npm run report
+npm run ask:examples
+npm run ask -- "Show all failed checks."
+```
+
+## 8. Phase Verification
+
+### Phase 2: Authentication
+
+```bash
+npm run auth
+```
+
+Expected session file:
+
+```bash
+ls data/session/auth-storage-state.json
+```
+
+### Phase 3: Crawl Pages
+
+```bash
+npm run crawl:pages
+```
+
+Expected files:
+
+```text
+data/ui/pages.json
+data/ui/coverage.json
+data/ui/crawl-failures.json
+screenshots/*.png
+```
+
+Verify:
+
+```bash
+cat data/ui/coverage.json
+```
+
+Expected shape:
+
+```json
+{
+  "pages_discovered": 12,
+  "pages_crawled": 12,
+  "pages_failed": 0,
+  "screenshots_captured": 12
+}
+```
+
+If screenshots already exist, the crawler can skip and return:
+
+```text
+Screenshots already exist for this PDF.
+```
+
+### Phase 4: Extract UI Components
+
+```bash
+npm run extract:components
+```
+
+Verify:
+
+```bash
+node -e "const c=require('./data/ui/components.json'); console.log(c.length); console.log(c[0]);"
+```
+
+Expected component shape:
+
+```js
+{
+  page_url: '/dashboard/my-applications',
+  component_type: 'button',
+  component_selector: '#tour-new-application',
+  actual_text_content: '+ New Application',
+  screenshot_path: '...',
+  retrieved_at: '...'
+}
+```
+
+### Phase 5: Parse PDF And Extract Rules
+
+```bash
+npm run ingest
+```
+
+Expected files:
+
+```text
+data/guidelines/waiverpro-guidelines.raw.txt
+data/guidelines/guideline-pages.json
+data/guidelines/guideline-chunks.json
+data/guidelines/rules.json
+data/guidelines/guideline-rules.json
+```
+
+Verify:
+
+```bash
+node -e "const r=require('./data/guidelines/rules.json'); console.log(r.length); console.log(r[0]);"
+```
+
+Useful rules check:
+
+```bash
+node -e "const r=require('./data/guidelines/rules.json'); const useful=r.filter(x => x.section !== 'Unknown section' && x.source_page > 2); console.log(useful.length); console.log(useful.slice(0,10));"
+```
+
+### Phase 6: Index Guidelines In ChromaDB
+
+```bash
+npm run index:guidelines
+```
+
+Test retrieval:
+
+```bash
+curl -s -X POST http://localhost:3000/api/vector/search \
+  -H "Content-Type: application/json" \
+  -d '{"collectionName":"guidelines_collection","query":"dashboard applications","limit":2}'
+```
+
+Expected: JSON with `results`.
+
+### Phase 7: Summarize Website
+
+```bash
+npm run summarize:website
+```
+
+Expected files:
+
+```text
+data/summaries/website-summaries.json
+data/summaries/website-*.md
+```
+
+Verify:
+
+```bash
+node -e "const s=require('./data/summaries/website-summaries.json'); console.log(s.length); console.log(s[0]);"
+```
+
+### Phase 7B: Index Website Evidence
+
+```bash
+npm run index:website
+```
+
+Test retrieval:
+
+```bash
+curl -s -X POST http://localhost:3000/api/vector/search \
+  -H "Content-Type: application/json" \
+  -d '{"collectionName":"website_collection","query":"my applications dashboard new application","limit":2}'
+```
+
+Expected: JSON with `results`.
+
+### Phase 8: Compliance Comparison
+
+```bash
+npm run compare
+```
+
+Expected file:
+
+```text
+data/reports/discrepancies.json
+```
+
+Verify:
+
+```bash
+cat data/reports/discrepancies.json
+```
+
+An empty array is valid:
+
+```json
+[]
+```
+
+If Gemini quota is exhausted, the command exits gracefully and writes whatever result it can.
+
+### Phase 9: Generate Reports
+
+```bash
+npm run report
+```
+
+Expected files:
+
+```text
+data/reports/report.json
+data/reports/report.md
+data/reports/final-report.md
+data/reports/coverage.json
+```
+
+Verify:
+
+```bash
+node -e "const r=require('./data/reports/report.json'); console.log(r.overall);"
+```
+
+### Phase 10: Q&A Agent
+
+```bash
+npm run ask:examples
+```
+
+Ask:
+
+```bash
+npm run ask -- "Which pages violate the documentation?"
+npm run ask -- "Show all failed checks."
+npm run ask -- "Show evidence for each discrepancy."
+npm run ask -- "List all UI discrepancies found on the My Applications dashboard."
+npm run ask -- "Is the support contact information on the live site correct according to the manual?"
+npm run ask -- "Does the live landing page match the official guidelines?"
+```
+
+The Q&A agent answers report/discrepancy questions deterministically from `report.json` and `discrepancies.json` first. If local report evidence is not enough, it falls back to Gemini plus ChromaDB retrieval.
+
+## 9. API Endpoints
 
 - `GET /health`
+- `GET /api/ask/examples`
+- `GET /api/artifacts/summary`
+- `GET /api/artifacts/pages`
+- `GET /api/artifacts/components`
+- `GET /api/artifacts/rules`
+- `GET /api/artifacts/summaries`
+- `GET /api/artifacts/discrepancies`
+- `GET /api/artifacts/report`
 - `POST /api/ingest`
 - `POST /api/index`
 - `POST /api/index/website`
@@ -78,520 +494,154 @@ API endpoints:
 - `POST /api/extract/components`
 - `POST /api/compare`
 - `POST /api/report`
-- `POST /api/ask` with `{ "question": "..." }`
-- `GET /api/ask/examples`
-- `GET /api/artifacts/summary`
-- `GET /api/artifacts/pages`
-- `GET /api/artifacts/components`
-- `GET /api/artifacts/rules`
-- `GET /api/artifacts/summaries`
-- `GET /api/artifacts/discrepancies`
-- `GET /api/artifacts/report`
+- `POST /api/ask`
 
-## Frontend
-
-The React frontend lives in `client/` and uses JavaScript, Vite, Tailwind CSS, and `lucide-react`.
-
-Install frontend dependencies:
+Example Q&A API call:
 
 ```bash
-npm install --prefix client
+curl -s -X POST http://localhost:3000/api/ask \
+  -H "Content-Type: application/json" \
+  -d '{"question":"Show all failed checks."}'
 ```
 
-Start the backend in one terminal:
+Example report call:
 
 ```bash
-npm run start
+curl -s -X POST http://localhost:3000/api/report \
+  -H "Content-Type: application/json" \
+  -d '{"format":"json"}'
 ```
 
-Start the frontend in another terminal:
+## 10. Final Verification
 
 ```bash
-npm run client:dev
+node -e "const out={pages:require('./data/ui/pages.json').length, components:require('./data/ui/components.json').length, rules:require('./data/guidelines/rules.json').length, summaries:require('./data/summaries/website-summaries.json').length, discrepancies:require('./data/reports/discrepancies.json').length, report:require('./data/reports/report.json').overall}; console.log(JSON.stringify(out,null,2));"
 ```
 
-If port `3000` already has an older backend running, use:
+Expected shape:
+
+```json
+{
+  "pages": 12,
+  "components": 593,
+  "rules": 85,
+  "summaries": 11,
+  "discrepancies": 0,
+  "report": {
+    "status": "PASS",
+    "compliance_score": 100,
+    "pages_reviewed": 11,
+    "total_checks": 593,
+    "passed_checks": 593,
+    "failed_checks": 0,
+    "violations_count": 0
+  }
+}
+```
+
+Counts can vary depending on crawl timing, generated data, and Gemini quota.
+
+## 11. Common Errors And Fixes
+
+### `chroma: error ... stat .../run: no such file or directory`
+
+You are using the wrong system `chroma`.
+
+Fix:
 
 ```bash
-npm run start:3001
-npm run client:dev:3001
+.venv-chroma/bin/chroma run --host localhost --port 8000
 ```
 
-Open:
+### `Address localhost:8000 is not available`
+
+ChromaDB is already running on port `8000`.
+
+Verify:
+
+```bash
+curl -s http://localhost:8000/api/v2/heartbeat
+```
+
+### `Cannot find package dotenv`
+
+Install dependencies:
+
+```bash
+npm install --legacy-peer-deps
+```
+
+### `GEMINI_API_KEY is required`
+
+Add a valid key to `.env`:
+
+```env
+GEMINI_API_KEY=your_real_key
+```
+
+### Gemini `429 Too Many Requests`
+
+The key works, but quota is exhausted.
+
+Fix options:
+
+- wait for quota reset
+- use another valid Gemini API key/project
+- enable billing or increase quota
+- keep `RULE_EXTRACTION_DELAY_MS=15000`
+
+### Embedding model not found
+
+Use:
+
+```env
+GEMINI_EMBEDDING_MODEL=models/gemini-embedding-001
+```
+
+### `localhost:3000/` shows route not found
+
+Normal. Use:
 
 ```text
-http://localhost:5173
+http://localhost:3000/health
 ```
 
-Build the frontend:
+### Playwright login fails
 
-```bash
-npm run client:build
+Set:
+
+```env
+HEADLESS=false
 ```
 
-The frontend reads generated artifacts from `/api/artifacts/*`, triggers pipeline stages through existing API routes, and displays screenshot evidence through `/screenshots/*`.
-
-## Outputs
-
-- `data/guidelines/waiverpro-guidelines.raw.txt`
-- `data/guidelines/guideline-pages.json`
-- `data/guidelines/guideline-chunks.json`
-- `data/guidelines/rules.json`
-- `data/guidelines/guideline-rules.json`
-- `data/session/auth-storage-state.json`
-- `data/ui/pages.json`
-- `data/ui/components.json`
-- `data/ui/coverage.json`
-- `data/ui/crawl-failures.json`
-- `data/ui/discovered-routes.json`
-- `data/ui/ui-states.json`
-- `data/summaries/website-summaries.json`
-- `data/summaries/website-*.md`
-- `screenshots/*.png`
-- `data/reports/discrepancies.json`
-- `data/reports/coverage.json`
-- `data/reports/report.json`
-- `data/reports/report.md`
-- `data/reports/final-report.md`
-
-## Architecture
-
-The pipeline is intentionally staged:
-
-1. Ingest and parse the official PDF into durable text chunks.
-2. Extract checkable guideline rules with Gemini 2.5 Flash.
-3. Embed guideline chunks with `text-embedding-004` and store them in ChromaDB.
-4. Use Playwright to capture rendered, authenticated UI pages, components, and screenshots.
-5. Summarize extracted website evidence and embed it into ChromaDB.
-6. Retrieve relevant guideline and website context per rule.
-7. Ask Gemini to compare only retrieved guidelines and supplied UI evidence.
-8. Write JSON and Markdown reports with citations and screenshot links.
-
-## Phase 2 Authentication
-
-The Playwright authentication module lives in `src/crawler/auth.js` and exports:
-
-- `login(page)`
-- `saveSession(context)`
-- `loadSession()`
-- `verifyAuthentication(page)`
-
-Run it directly with:
+Then run:
 
 ```bash
 npm run auth
 ```
 
-Successful authentication writes Playwright storage state to `data/session/auth-storage-state.json`. Later runs try to load that session first, verify the dashboard is still authenticated, and fall back to a fresh login if the saved session expired.
-
-## Phase 3 Website Crawler
-
-Run only the authenticated website crawler:
+Inspect:
 
 ```bash
-npm run crawl:pages
+ls screenshots/auth-*.png
 ```
 
-The crawler reuses `data/session/auth-storage-state.json` when available, discovers same-origin routes from the authenticated app, handles SPA navigation by inspecting links and clicking visible navigation controls, waits for network idle, retries page failures three times, captures screenshots, and avoids duplicate crawls with normalized route tracking.
+## 12. Notes
 
-Outputs:
+Actual successful runs have produced approximately:
 
-- `data/ui/pages.json`
-- `data/ui/coverage.json`
-- `data/ui/crawl-failures.json`
-- `screenshots/*.png`
-
-## Phase 4 Canonical UI Extraction
-
-Run the component extraction engine:
-
-```bash
-npm run extract:components
+```text
+Pages crawled: 12
+Components extracted: 593+
+Website summaries: 11
+Report status: PASS
+Compliance score: 100
 ```
 
-The extractor uses the authenticated Playwright session, reads `data/ui/pages.json`, visits each crawled page, waits for the rendered SPA state, and extracts visible canonical components using DOM APIs.
+Known limitation:
 
-Supported component types:
-
-- `heading`
-- `button`
-- `link`
-- `navigation_item`
-- `text_block`
-- `input`
-- `table`
-- `card`
-- `modal`
-
-Output:
-
-- `data/ui/components.json`
-
-## Phase 5 PDF Parsing & Rule Extraction
-
-Run PDF parsing and Gemini rule extraction:
-
-```bash
-npm run ingest
+```text
+Authenticated dashboard pages are captured successfully.
+The public landing page may not always be represented in the canonical authenticated artifact set.
+Landing-page Q&A can therefore return low confidence or insufficient evidence.
 ```
-
-The parser uses `pdf-parse` with a custom page renderer to preserve page numbers, headings, sections, and paragraph blocks. It validates malformed PDFs before parsing, logs failures, and writes page-aware intermediate artifacts.
-
-Rule output schema:
-
-```json
-{
-  "section": "Section 2: Accessing WaiverPro",
-  "subsection": "Key elements of the landing page",
-  "guideline_text": "The landing page must include a Getting Started button in the top-right corner.",
-  "source_page": 4
-}
-```
-
-Outputs:
-
-- `data/guidelines/waiverpro-guidelines.raw.txt`
-- `data/guidelines/guideline-pages.json`
-- `data/guidelines/guideline-chunks.json`
-- `data/guidelines/rules.json`
-
-## Phase 6 ChromaDB + Gemini Embeddings
-
-The vector database layer uses ChromaDB collections embedded with Gemini `text-embedding-004`.
-
-Collections:
-
-- `guidelines_collection`
-- `website_collection`
-
-Reusable service methods:
-
-- `addDocuments()`
-- `searchDocuments()`
-- `deleteDocuments()`
-
-Index guideline chunks:
-
-```bash
-npm run index:guidelines
-```
-
-Index website summaries from `data/ui/pages.json` and `data/ui/components.json`:
-
-```bash
-npm run index:website
-```
-
-Search through the API:
-
-```http
-POST /api/vector/search
-Content-Type: application/json
-
-{
-  "collectionName": "guidelines_collection",
-  "query": "landing page Getting Started button",
-  "limit": 5
-}
-```
-
-Delete by ids:
-
-```http
-POST /api/vector/delete
-Content-Type: application/json
-
-{
-  "collectionName": "website_collection",
-  "ids": ["website-page-%2Fdashboard"]
-}
-```
-
-## Phase 7 Website Summarization
-
-Generate semantic summaries from extracted UI components:
-
-```bash
-npm run summarize:website
-```
-
-Input:
-
-- `data/ui/components.json`
-- `data/ui/pages.json`
-
-Outputs:
-
-- `data/summaries/website-summaries.json`
-- `data/summaries/website-*.md`
-
-The summarizer uses Gemini 2.5 Flash to describe each page semantically, including important buttons, inputs, tables, filters, navigation items, and likely workflows. It then embeds the generated summaries with `text-embedding-004` and stores them in ChromaDB `website_collection`.
-
-API:
-
-```http
-POST /api/summarize/website
-Content-Type: application/json
-
-{
-  "index": true
-}
-```
-
-## Phase 8 Compliance Agent
-
-Run the RAG-backed compliance comparison:
-
-```bash
-npm run compare
-```
-
-Inputs:
-
-- `data/guidelines/rules.json`
-- `data/ui/components.json`
-- `data/summaries/website-summaries.json`
-- ChromaDB `guidelines_collection`
-- ChromaDB `website_collection`
-
-Output:
-
-- `data/reports/discrepancies.json`
-
-Discrepancy schema:
-
-```json
-{
-  "page_url": "/dashboard",
-  "guideline_reference": "Section 2: Accessing WaiverPro > Key elements > Page 4",
-  "expected_text_content": "The dashboard must include a Create Application button.",
-  "actual_text_content": "Not found in supplied UI evidence",
-  "discrepancy_flag": true,
-  "discrepancy_reason": "The retrieved guideline requires the button, but the supplied dashboard components and summary do not show it.",
-  "screenshot_path": "screenshots/dashboard.png",
-  "retrieved_at": "2026-06-17T00:00:00.000Z"
-}
-```
-
-The agent uses Gemini 2.5 Flash with ChromaDB retrieval from both guideline and website collections. It is intentionally conservative: if retrieved evidence is ambiguous, missing, unrelated, or compliant, it writes no discrepancy instead of guessing.
-
-## Phase 9 Report Generator
-
-Generate auditor-friendly compliance reports from discrepancy records:
-
-```bash
-npm run report
-```
-
-Input:
-
-- `data/reports/discrepancies.json`
-- `data/ui/components.json`
-- `data/summaries/website-summaries.json`
-- `data/reports/coverage.json`
-
-Outputs:
-
-- `data/reports/report.json`
-- `data/reports/report.md`
-- `data/reports/final-report.md`
-
-The JSON report includes:
-
-- overall compliance score
-- page-wise compliance scores
-- violations
-- guideline references
-- screenshot evidence
-- mismatch explanations
-
-API:
-
-```http
-POST /api/report
-Content-Type: application/json
-
-{
-  "format": "json"
-}
-```
-
-## Phase 10 Compliance Q&A Agent
-
-List supported example questions:
-
-```bash
-npm run ask:examples
-```
-
-Ask a compliance question:
-
-```bash
-npm run ask -- "Does the live landing page match the official guidelines?"
-```
-
-Questions this agent is designed to answer:
-
-- Does the live landing page match the official guidelines?
-- List all UI discrepancies found on the My Applications dashboard.
-- Is the support contact information on the live site correct according to the manual?
-- Which pages violate the documentation?
-- Show all failed checks.
-- Show evidence for each discrepancy.
-
-The Q&A agent uses Gemini 2.5 Flash with ChromaDB retrieval from:
-
-- `guidelines_collection`
-- `website_collection`
-
-It also grounds answers in local artifacts:
-
-- `data/reports/discrepancies.json`
-- `data/reports/report.json`
-- `data/ui/components.json`
-- `data/summaries/website-summaries.json`
-
-API:
-
-```http
-GET /api/ask/examples
-```
-
-```http
-POST /api/ask
-Content-Type: application/json
-
-{
-  "question": "Show evidence for each discrepancy."
-}
-```
-
-Response shape:
-
-```json
-{
-  "question": "Show evidence for each discrepancy.",
-  "answer": "Evidence-grounded answer with the automated-check disclaimer.",
-  "confidence": "high",
-  "citations": {
-    "guideline_sections": ["Section 3.2 > Page 8"],
-    "page_urls": ["/dashboard"],
-    "screenshots": ["screenshots/dashboard.png"]
-  },
-  "failed_checks": [
-    {
-      "page_url": "/dashboard",
-      "expected": "New Application",
-      "actual": "Create Application",
-      "reference": "Section 3.2",
-      "screenshot": "screenshots/dashboard.png",
-      "explanation": "The visible button label differs from the manual."
-    }
-  ],
-  "limitations": [],
-  "evidence_counts": {
-    "guideline_context": 8,
-    "website_context": 8,
-    "discrepancies": 1,
-    "components": 20,
-    "summaries": 1
-  }
-}
-```
-
-The agent is intentionally conservative: if retrieved evidence is insufficient, it says so instead of inventing an answer.
-
-## Tooling Decisions
-
-Playwright is used because the assignment requires rendered UI states after JavaScript execution and authentication. Raw HTML scraping would miss dynamic content and route-specific state.
-
-ChromaDB plus Gemini embeddings provide a small local RAG layer so the comparison agent cites guideline sections instead of relying on model memory.
-
-The system keeps JSON artifacts between stages for debuggability, repeatability, and partial progress. A failed crawl or comparison can be inspected without rerunning every previous step.
-
-## Known Limitations
-
-- Deep workflows that create, edit, or delete real data need explicit scripted flows before they should run automatically.
-- The crawler discovers visible links and seed dashboard routes; hidden modal states and guided tours may need targeted extraction scripts.
-- Visual analysis is currently based on screenshots plus DOM evidence. Pixel-level layout checks can be added for stable high-risk screens.
-- This is an automated compliance check, not a replacement for manual QA.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
