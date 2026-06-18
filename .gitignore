@@ -1,0 +1,17 @@
+node_modules/
+client/node_modules/
+client/dist/
+.venv-chroma/
+chroma/
+.env
+data/**/*.json
+data/**/*.jsonl
+data/**/*.txt
+data/**/*.md
+screenshots/**/*.png
+screenshots/**/*.jpg
+screenshots/**/*.jpeg
+playwright-report/
+test-results/
+.DS_Store
+npm-debug.log*

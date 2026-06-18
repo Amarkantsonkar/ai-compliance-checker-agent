@@ -1,0 +1,54 @@
+{
+  "name": "ai-documentation-compliance-agent",
+  "version": "1.0.0",
+  "description": "Foundation for an AI agent that compares WaiverPro live UI states against official PDF guidelines.",
+  "type": "module",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "start:3001": "PORT=3001 node src/index.js",
+    "dev": "node --watch src/index.js",
+    "auth": "node src/cli.js auth",
+    "crawl": "node src/cli.js crawl",
+    "crawl:pages": "node src/cli.js crawl:pages",
+    "extract:components": "node src/cli.js extract:components",
+    "ingest": "node src/cli.js ingest",
+    "index:guidelines": "node src/cli.js index:guidelines",
+    "index:website": "node src/cli.js index:website",
+    "summarize": "node src/cli.js summarize",
+    "summarize:website": "node src/cli.js summarize:website",
+    "compare": "node src/cli.js compare",
+    "report": "node src/cli.js report",
+    "ask": "node src/cli.js ask",
+    "ask:examples": "node src/cli.js ask:examples",
+    "pipeline": "node src/cli.js pipeline",
+    "client:dev": "npm run dev --prefix client",
+    "client:dev:3001": "VITE_BACKEND_TARGET=http://localhost:3001 npm run dev --prefix client",
+    "client:build": "npm run build --prefix client",
+    "client:preview": "npm run preview --prefix client"
+  },
+  "keywords": [
+    "compliance",
+    "gemini",
+    "langchain",
+    "chromadb",
+    "playwright",
+    "rag"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "@google/generative-ai": "^0.24.1",
+    "@langchain/community": "^0.3.49",
+    "@langchain/core": "^0.3.66",
+    "@langchain/google-genai": "^0.2.16",
+    "chromadb": "^1.10.5",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "langchain": "^0.3.30",
+    "pdf-parse": "^1.1.1",
+    "playwright": "^1.53.1"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
