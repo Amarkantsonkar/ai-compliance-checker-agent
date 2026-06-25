@@ -1,25 +1,80 @@
 # AI Documentation Compliance Agent
 
+## Prerequisites
+
+- Node.js 20 or newer
+- npm
+- Python 3.12 (recommended for ChromaDB on Windows)
+- A Gemini API key
+- Microsoft Visual C++ Redistributable x64 (Windows only)
+
+Windows users can download the Visual C++ runtime from:
+
+<https://aka.ms/vc14/vc_redist.x64.exe>
+
 ## How To Run The Project
 
-### 1. Open Project Folder
+### 1. Open the Project Folder
+
+Run the commands below from the repository root. For example:
 
 ```bash
-cd "/home/amar/Desktop/AI Compliance Checker Aagent"
+cd "/path/to/AI Compliance Checker Aagent"
 ```
 
-### 2. Install Dependencies
+On Windows, Git Bash accepts paths such as:
+
+```bash
+cd "/d/AI Compliance Checker Aagent"
+```
+
+### 2. Install Node.js Dependencies
+
+Git Bash, Linux, or macOS:
 
 ```bash
 npm install --legacy-peer-deps
 npx playwright install chromium
-npm install --prefix client
+npm install --prefix client --legacy-peer-deps
+```
+
+PowerShell:
+
+```powershell
+npm.cmd install --legacy-peer-deps
+npx.cmd playwright install chromium
+npm.cmd install --prefix client --legacy-peer-deps
+```
+
+If PowerShell reports that `npm.ps1` cannot be loaded because scripts are
+disabled, either use `npm.cmd` as shown above or run this once in PowerShell:
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser -ExecutionPolicy RemoteSigned
+```
+
+Restart the terminal afterward.
+
+If the frontend reports that `vite` is not recognized, reinstall its
+dependencies:
+
+```bash
+rm -rf client/node_modules
+npm install --prefix client --legacy-peer-deps
 ```
 
 ### 3. Create `.env`
 
+Git Bash, Linux, or macOS:
+
 ```bash
 cp .env.example .env
+```
+
+PowerShell:
+
+```powershell
+Copy-Item .env.example .env
 ```
 
 Open `.env` and add your Gemini API key:
@@ -38,33 +93,80 @@ GEMINI_EMBEDDING_MODEL=models/gemini-embedding-001
 CHROMA_URL=http://localhost:8000
 GUIDELINES_COLLECTION=guidelines_collection
 WEBSITE_COLLECTION=website_collection
-GUIDELINES_PDF_PATH=/home/amar/Desktop/WaiverPro-User-Guidelines.pdf
+GUIDELINES_PDF_PATH=/absolute/path/to/WaiverPro-User-Guidelines.pdf
 HEADLESS=true
+```
+
+On Windows, an absolute PDF path can use forward slashes:
+
+```env
+GUIDELINES_PDF_PATH=D:/Documents/WaiverPro-User-Guidelines.pdf
 ```
 
 ### 4. Start ChromaDB
 
-Open a new terminal:
+Create the ChromaDB virtual environment once.
 
-```bash
-cd "/home/amar/Desktop/AI Compliance Checker Aagent"
-.venv-chroma/bin/chroma run --host localhost --port 8000
-```
-
-Keep this terminal running.
-
-If `.venv-chroma` does not exist, create it:
+Linux or macOS:
 
 ```bash
 python3 -m venv .venv-chroma
-.venv-chroma/bin/pip install chromadb
-.venv-chroma/bin/chroma run --host localhost --port 8000
+source .venv-chroma/bin/activate
+python -m pip install --upgrade pip
+python -m pip install chromadb
+```
+
+Windows Git Bash:
+
+```bash
+py -3.12 -m venv .venv-chroma
+source .venv-chroma/Scripts/activate
+python -m pip install --upgrade pip
+python -m pip install chromadb
+```
+
+Windows PowerShell:
+
+```powershell
+py -3.12 -m venv .venv-chroma
+.\.venv-chroma\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install chromadb
+```
+
+Confirm that the environment uses Python 3.12:
+
+```bash
+python --version
+```
+
+Then start ChromaDB in a dedicated terminal and keep it running.
+
+Linux or macOS:
+
+```bash
+source .venv-chroma/bin/activate
+chroma run --host localhost --port 8000
+```
+
+Windows Git Bash:
+
+```bash
+source .venv-chroma/Scripts/activate
+chroma run --host localhost --port 8000
+```
+
+Windows PowerShell:
+
+```powershell
+.\.venv-chroma\Scripts\Activate.ps1
+chroma run --host localhost --port 8000
 ```
 
 Verify ChromaDB:
 
 ```bash
-curl -s http://localhost:8000/api/v2/heartbeat
+curl http://localhost:8000/api/v2/heartbeat
 ```
 
 ### 5. Start Backend
@@ -72,7 +174,6 @@ curl -s http://localhost:8000/api/v2/heartbeat
 Open another terminal:
 
 ```bash
-cd "/home/amar/Desktop/AI Compliance Checker Aagent"
 npm run start
 ```
 
@@ -84,8 +185,23 @@ curl -s http://localhost:3000/health
 
 If port `3000` is already busy:
 
+Linux or macOS:
+
 ```bash
 npm run start:3001
+```
+
+Windows Git Bash:
+
+```bash
+PORT=3001 node src/index.js
+```
+
+Windows PowerShell:
+
+```powershell
+$env:PORT="3001"
+node src/index.js
 ```
 
 ### 6. Start Frontend
@@ -93,7 +209,6 @@ npm run start:3001
 Open another terminal:
 
 ```bash
-cd "/home/amar/Desktop/AI Compliance Checker Aagent"
 npm run client:dev
 ```
 
@@ -105,8 +220,23 @@ http://localhost:5173
 
 If backend is running on `3001`, start frontend like this:
 
+Linux or macOS:
+
 ```bash
 npm run client:dev:3001
+```
+
+Windows Git Bash:
+
+```bash
+VITE_BACKEND_TARGET=http://localhost:3001 npm run dev --prefix client
+```
+
+Windows PowerShell:
+
+```powershell
+$env:VITE_BACKEND_TARGET="http://localhost:3001"
+npm.cmd run dev --prefix client
 ```
 
 ### 7. Run From Frontend
@@ -129,8 +259,26 @@ This is the recommended demo/evaluation run.
 
 Fast evaluation mode:
 
+Linux or macOS:
+
 ```bash
 npm run pipeline:evaluate
+```
+
+Windows Git Bash:
+
+```bash
+RULE_EXTRACTION_MODE=deterministic WEBSITE_SUMMARY_MODE=deterministic REUSE_WEBSITE_SUMMARIES=true COMPLIANCE_MAX_RULES=25 node src/cli.js pipeline:evaluate
+```
+
+Windows PowerShell:
+
+```powershell
+$env:RULE_EXTRACTION_MODE="deterministic"
+$env:WEBSITE_SUMMARY_MODE="deterministic"
+$env:REUSE_WEBSITE_SUMMARIES="true"
+$env:COMPLIANCE_MAX_RULES="25"
+node src/cli.js pipeline:evaluate
 ```
 
 Full AI mode:
@@ -381,12 +529,23 @@ npm run auth
 
 If Gemini quota is exhausted, use:
 
-```bash
-npm run pipeline:evaluate
-```
+Use the fast evaluation command for your operating system in
+[Run From Terminal](#8-run-from-terminal).
 
-If `chroma run` gives error, use:
+If Windows reports `DLL load failed while importing chromadb_rust_bindings`:
 
-```bash
-.venv-chroma/bin/chroma run --host localhost --port 8000
+1. Confirm `python --version` reports Python 3.12.
+2. Install or repair the Microsoft Visual C++ Redistributable x64:
+   <https://aka.ms/vc14/vc_redist.x64.exe>
+3. Restart VS Code or the terminal, reactivate `.venv-chroma`, and run Chroma
+   again.
+
+Windows virtual environments use `Scripts`; Linux and macOS virtual
+environments use `bin`. Do not use `.venv-chroma/bin/chroma` on Windows.
+
+PowerShell 5 does not support Bash commands such as `test -d ...` or `&&`.
+Run those commands in Git Bash, or use the PowerShell equivalent:
+
+```powershell
+Test-Path node_modules
 ```
